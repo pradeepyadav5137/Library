@@ -1,0 +1,94 @@
+/* ===== Footer Component - NITT Theme ===== */
+
+.footer {
+  background-color: #1a365d;
+  color: white;
+  padding: 30px 20px;
+  margin-top: 60px;
+  box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.1);
+}
+
+.footer-content {
+  max-width: 1200px;
+  margin: 0 auto;
+  text-align: center;
+}
+
+.footer-title {
+  font-size: 16px;
+  font-weight: 600;
+  margin-bottom: 6px;
+  opacity: 1;
+}
+
+.footer-address {
+  font-size: 14px;
+  opacity: 0.9;
+  margin-bottom: 12px;
+}
+
+.footer-contact {
+  font-size: 14px;
+  opacity: 0.9;
+  margin-bottom: 12px;
+}
+
+.footer-contact a {
+  color: #c9a227;
+  text-decoration: none;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+.footer-contact a:hover {
+  color: #d4af37;
+  text-decoration: underline;
+}
+
+.footer-copyright {
+  font-size: 13px;
+  opacity: 0.8;
+  margin-top: 15px;
+  padding-top: 15px;
+  border-top: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .footer {
+    padding: 25px 15px;
+    margin-top: 40px;
+  }
+
+  .footer-title {
+    font-size: 15px;
+  }
+
+  .footer-address,
+  .footer-contact {
+    font-size: 13px;
+  }
+
+  .footer-copyright {
+    font-size: 12px;
+  }
+}
+
+@media (max-width: 480px) {
+  .footer {
+    padding: 20px 10px;
+  }
+
+  .footer-title {
+    font-size: 14px;
+  }
+
+  .footer-address,
+  .footer-contact {
+    font-size: 12px;
+  }
+
+  .footer-copyright {
+    font-size: 11px;
+  }
+}

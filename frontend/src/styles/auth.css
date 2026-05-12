@@ -1,0 +1,38 @@
+.otp-input {
+  letter-spacing: 8px;
+  font-size: 24px;
+  text-align: center;
+  font-weight: bold;
+  font-family: 'Courier New', monospace;
+}
+
+.field-hint {
+  font-size: 12px;
+  color: #718096;
+  margin-top: 8px;
+  font-style: italic;
+}
+
+.auth-message {
+  padding: 16px;
+  border-radius: 6px;
+  margin-bottom: 20px;
+}
+
+.auth-message.success {
+  background-color: #f0fff4;
+  color: #22543d;
+  border-left: 4px solid #48bb78;
+}
+
+.auth-message.error {
+  background-color: #fff5f5;
+  color: #742a2a;
+  border-left: 4px solid #e53e3e;
+}
+
+.auth-message.info {
+  background-color: #e6fffa;
+  color: #234e52;
+  border-left: 4px solid #38b2ac;
+}

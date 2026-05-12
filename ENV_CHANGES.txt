@@ -1,0 +1,9 @@
+To support the new cookie-based authentication, please ensure the following environment variables are set in your backend `.env` file or deployment environment:
+
+1.  **NODE_ENV**: Set this to `production` when deploying to a live server.
+    *   If `NODE_ENV` is `production`, cookies will be set with `Secure: true` (requires HTTPS) and `SameSite: None` (allows cross-site if needed, but requires HTTPS).
+    *   If `NODE_ENV` is `development` (or unset), cookies will be set with `Secure: false` and `SameSite: Lax` (suitable for localhost development).
+
+2.  **JWT_SECRET**: Ensure this is a strong secret string (already in use).
+
+3.  **FRONTEND_URL**: Ensure this matches your frontend URL (e.g., `http://localhost:5173` or your production domain) to allow CORS credentials.

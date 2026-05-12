@@ -1,0 +1,47 @@
+.role-selection-container {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 25px;
+  margin-top: 40px;
+}
+
+.role-card {
+  background: white;
+  border: 2px solid #cbd5e0;
+  border-radius: 12px;
+  padding: 30px 25px;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+.role-card:hover {
+  border-color: #c9a227;
+  box-shadow: 0 8px 20px rgba(201, 162, 39, 0.2);
+  transform: translateY(-4px);
+}
+
+.role-icon {
+  font-size: 48px;
+  margin-bottom: 16px;
+}
+
+.role-card h3 {
+  font-size: 20px;
+  color: #1a365d;
+  margin-bottom: 10px;
+}
+
+.role-card p {
+  font-size: 14px;
+  color: #4a5568;
+  margin-bottom: 20px;
+  line-height: 1.5;
+}
+
+@media (max-width: 768px) {
+  .role-selection-container {
+    grid-template-columns: 1fr;
+  }
+}
