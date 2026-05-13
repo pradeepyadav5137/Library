@@ -45,7 +45,8 @@ echo ""
 echo "▶ [4/5] Building frontend..."
 cd "$FRONTEND_DIR"
 npm install
-VITE_API_URL="http://$EC2_IP/api" npm run build
+# VITE_API_URL is read automatically from frontend/.env
+npm run build
 echo "   ✓ Frontend built → $FRONTEND_DIR/dist"
 
 # ── 5. Permissions + Nginx ────────────────────────────────────
