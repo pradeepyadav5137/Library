@@ -69,6 +69,7 @@ const applicationSchema = new mongoose.Schema({
   
   // File URLs & Extra details
   photoPath: String,
+  photoBase64: String,   // base64-encoded photo for direct PDF embedding
   firPath: String,
   firNumber: String,
   firRegisteredDate: Date,

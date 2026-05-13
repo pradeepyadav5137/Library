@@ -19,6 +19,53 @@ const formatDate = (value) => {
   }
 }
 
+// Force-download a file from S3 using a signed URL with Content-Disposition: attachment
+// No blob fetch needed — S3 handles the header, browser saves directly.
+const forceDownload = async (s3KeyOrUrl, _filename) => {
+  try {
+    const apiBase = import.meta.env.VITE_API_URL || 'http://15.206.74.151/api';
+    let downloadUrl;
+
+    if (s3KeyOrUrl && s3KeyOrUrl.startsWith('applications/')) {
+      // Private S3 key → get a signed URL with attachment disposition
+      const res = await fetch(`${apiBase}/applications/signed-url?key=${encodeURIComponent(s3KeyOrUrl)}&download=1`);
+      if (!res.ok) throw new Error('Could not get signed URL');
+      const { url } = await res.json();
+      downloadUrl = url;
+    } else {
+      // Already a full URL (e.g. local dev) — open in new tab as fallback
+      downloadUrl = s3KeyOrUrl;
+    }
+
+    // Open in hidden iframe so the browser triggers save-as without navigating away
+    const a = document.createElement('a');
+    a.href = downloadUrl;
+    a.target = '_blank';
+    a.rel = 'noopener noreferrer';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+  } catch (err) {
+    console.error('Download failed:', err);
+    alert('Could not download file. Please try again.');
+  }
+};
+
+// Resolve a signed URL for viewing (returns a usable URL string)
+const resolveSignedUrl = async (s3KeyOrUrl) => {
+  if (!s3KeyOrUrl) return null;
+  if (!s3KeyOrUrl.startsWith('applications/')) return s3KeyOrUrl;
+  try {
+    const apiBase = import.meta.env.VITE_API_URL || 'http://15.206.74.151/api';
+    const res = await fetch(`${apiBase}/applications/signed-url?key=${encodeURIComponent(s3KeyOrUrl)}`);
+    if (!res.ok) return null;
+    const { url } = await res.json();
+    return url;
+  } catch {
+    return null;
+  }
+};
+
 export default function AdminDashboard() {
   const navigate = useNavigate()
   const [applications, setApplications] = useState([])
@@ -609,10 +656,10 @@ export default function AdminDashboard() {
                 <h4>Uploaded Documents</h4>
                 <div className="documents-grid">
                   {[
-                    { url: selectedApp.photoUrl, label: 'Photograph', icon: '📷', isPdf: false },
-                    { url: selectedApp.firUrl, label: 'FIR Copy', icon: '📄', isPdf: selectedApp.firPath?.endsWith('.pdf') },
-                    { url: selectedApp.paymentUrl, label: 'Payment Receipt', icon: '💰', isPdf: selectedApp.paymentPath?.endsWith('.pdf') },
-                    { url: selectedApp.pdfUrl, label: 'Application Form', icon: '📋', isPdf: true },
+                   { url: selectedApp.photoUrl || selectedApp.photoPath, rawKey: selectedApp.photoPath, label: 'Photograph', icon: '📷', isPdf: false },
+                    { url: selectedApp.firUrl || selectedApp.firPath, rawKey: selectedApp.firPath, label: 'FIR Copy', icon: '📄', isPdf: selectedApp.firPath?.endsWith('.pdf') },
+                    { url: selectedApp.paymentUrl || selectedApp.paymentPath, rawKey: selectedApp.paymentPath, label: 'Payment Receipt', icon: '💰', isPdf: selectedApp.paymentPath?.endsWith('.pdf') },
+                    { url: selectedApp.pdfUrl || selectedApp.applicationPdfUrl, rawKey: selectedApp.applicationPdfUrl, label: 'Application Form', icon: '📋', isPdf: true },
                   ].filter(doc => doc.url).map((doc, i) => (
                     <div className="document-item" key={i}>
                       <div className="doc-icon">{doc.icon}</div>
@@ -620,46 +667,30 @@ export default function AdminDashboard() {
                         <strong>{doc.label}</strong>
                         <div style={{ display: 'flex', gap: '8px', marginTop: '6px', flexWrap: 'wrap' }}>
                           <button
-                            className="doc-link"
-                            style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, color: 'inherit', textDecoration: 'underline' }}
-                            onClick={() => {
-                              setFileViewer({
-                                url: doc.url,
-                                isPdf: doc.isPdf,
-                                label: doc.label,
-                                loading: true,
-                                error: null
-                              })
-
-                              // Small delay to simulate validation
-                              setTimeout(() => {
-                                setFileViewer(prev => ({
-                                  ...prev,
-                                  loading: false
-                                }))
-                              }, 100)
-                            }}
-
-
-                          >
-                            👁 View
-                          </button>
-                          {/* <a
-                            href={doc.url}
-                            download
-                            className="doc-link"
-                            style={{ color: 'inherit' }}
-                          >
-                            ⬇ Download
-                          </a> */}
-                          <a
-                            href={doc.url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="doc-link"
-                          >
-                            ⬇ Download
-                          </a>
+                             className="doc-link"
+                             style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, color: 'inherit', textDecoration: 'underline' }}
+                             onClick={async () => {
+                               // Resolve signed URL then open viewer
+                               const resolvedUrl = await resolveSignedUrl(doc.rawKey || doc.url);
+                               setFileViewer({
+                                 url: resolvedUrl,
+                                 rawKey: doc.rawKey || doc.url,
+                                 isPdf: doc.isPdf,
+                                 label: doc.label,
+                                 loading: false,
+                                 error: resolvedUrl ? null : 'Could not load file.'
+                               })
+                             }}
+                           >
+                             👁 View
+                           </button>
+                           <button
+                             className="doc-link"
+                             style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, color: 'inherit', textDecoration: 'underline' }}
+                             onClick={() => forceDownload(doc.rawKey || doc.url, doc.label)}
+                           >
+                             ⬇ Download
+                           </button>
 
                         </div>
                       </div>
@@ -709,14 +740,14 @@ export default function AdminDashboard() {
                         onClick={() => { setAction('update'); setNewStatus(''); }}
                         style={{ fontWeight: 'bold' }}
                       >
-                        🔄 Update Status
+                        Update Status
                       </button>
                       <button
                         className="btn btn-danger"
                         onClick={() => setAction('reject')}
                         style={{ fontWeight: 'bold' }}
                       >
-                        ❌ Reject Application
+                        Reject Application
                       </button>
                     </div>
                   ) : (
@@ -789,15 +820,14 @@ export default function AdminDashboard() {
             <div className="modal-header">
               <h3>{fileViewer.label}</h3>
               <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-                {fileViewer.url && !fileViewer.loading && (
-                  <a
-                    href={fileViewer.url}
-                    download
+                                {fileViewer.url && !fileViewer.loading && (
+                  <button
                     className="btn btn-secondary"
-                    style={{ fontSize: '13px', padding: '6px 14px', textDecoration: 'none' }}
+                    style={{ fontSize: '13px', padding: '6px 14px' }}
+                    onClick={() => forceDownload(fileViewer.rawKey || fileViewer.url, fileViewer.label)}
                   >
                     ⬇ Download
-                  </a>
+                  </button>
                 )}
                 <button className="close-btn" onClick={() => setFileViewer(null)}>×</button>
               </div>

@@ -1,9 +1,9 @@
 .form-containers {
-    margin: 40px auto;
-    padding: 0 20px;
-    width: 90%;
-    display: flex;
-    justify-content: center;
+  margin: 40px auto;
+  padding: 0 20px;
+  width: 90%;
+  display: flex;
+  justify-content: center;
 }
 
 
@@ -332,8 +332,13 @@
 }
 
 @keyframes fadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
 }
 
 .modal-content {
@@ -348,11 +353,12 @@
 }
 
 @keyframes slideUp {
-  from { 
+  from {
     opacity: 0;
     transform: translateY(20px);
   }
-  to { 
+
+  to {
     opacity: 1;
     transform: translateY(0);
   }
@@ -527,12 +533,12 @@
     flex-direction: column;
     gap: 20px;
   }
-  
+
   .admin-header-actions {
     width: 100%;
     justify-content: flex-end;
   }
-  
+
   .stats-grid {
     grid-template-columns: repeat(2, 1fr);
   }
@@ -542,29 +548,29 @@
   .admin-dashboard .form-card {
     padding: 20px 15px;
   }
-  
+
   .stats-grid {
     grid-template-columns: 1fr;
   }
-  
+
   .filter-buttons {
     flex-direction: column;
   }
-  
+
   .filter-btn {
     width: 100%;
     justify-content: center;
   }
-  
+
   .applications-table {
     display: block;
     overflow-x: auto;
   }
-  
+
   .action-buttons {
     flex-direction: column;
   }
-  
+
   .documents-grid {
     grid-template-columns: 1fr;
   }
@@ -574,15 +580,15 @@
   .modal-content {
     padding: 0;
   }
-  
+
   .modal-header {
     padding: 20px;
   }
-  
+
   .modal-body {
     padding: 20px;
   }
-  
+
   .form-grid.three-cols {
     grid-template-columns: 1fr;
   }
@@ -659,6 +665,7 @@
   text-align: center;
   color: #1a365d;
 }
+
 /* File Viewer Modal - sits above application detail modal */
 .file-viewer-overlay {
   position: fixed;

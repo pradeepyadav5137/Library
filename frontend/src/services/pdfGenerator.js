@@ -43,6 +43,40 @@ const getLogoData = () => {
   });
 };
 
+// Load any image URL (including signed S3 URLs or local data URLs) as base64
+const getImageData = (url) => {
+  if (!url) return Promise.resolve(null);
+  if (url.startsWith('data:')) return Promise.resolve(url);
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      canvas.width = img.width;
+      canvas.height = img.height;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0);
+      resolve(canvas.toDataURL('image/png'));
+    };
+    img.onerror = () => resolve(null);
+    img.src = url;
+  });
+};
+
+// Fetch a short-lived S3 pre-signed URL from our backend, then load as base64
+const getPhotoFromS3Key = async (s3Key) => {
+  if (!s3Key) return null;
+  try {
+    const apiBase = import.meta.env.VITE_API_URL || 'http://15.206.74.151/api';
+    const res = await fetch(`${apiBase}/applications/signed-url?key=${encodeURIComponent(s3Key)}`);
+    if (!res.ok) return null;
+    const { url } = await res.json();
+    return await getImageData(url);
+  } catch {
+    return null;
+  }
+};
+
 // --- HELPER: Draw a Tick Mark (Check Mark) ---
 const drawCheckmark = (doc, x, y, size = 3) => {
   doc.setLineWidth(0.5);
@@ -105,12 +139,12 @@ export const generateStudentPDF = async (data, shouldSave = true) => {
   doc.setFont('helvetica', 'bold');
   doc.text('Roll No.', margin + 112, y + 7);
   doc.setFont('helvetica', 'normal');
-  doc.text(data.rollNo || '', margin + 112, y + 13, { maxWidth: 33 });
+  drawFitText(doc, data.rollNo || '', margin + 112, y + 13, 33, 10);
 
   doc.setFont('helvetica', 'bold');
   doc.text('Branch', margin + 152, y + 7);
   doc.setFont('helvetica', 'normal');
-  doc.text(data.branch || '', margin + 152, y + 13, { maxWidth: 35 });
+  drawFitText(doc, data.branch || '', margin + 152, y + 13, 35, 10);
 
   y += rowHeight * 2;
 
@@ -129,12 +163,12 @@ export const generateStudentPDF = async (data, shouldSave = true) => {
   doc.text('Blood', margin + 112, y + 4);
   doc.text('Group', margin + 112, y + 8);
   doc.setFont('helvetica', 'normal');
-  doc.text(data.bloodGroup || '', margin + 130, y + 7);
+  drawFitText(doc, data.bloodGroup || '', margin + 130, y + 7, 18, 10);
 
   doc.setFont('helvetica', 'bold');
   doc.text('D.O.B', margin + 152, y + 7);
   doc.setFont('helvetica', 'normal');
-  doc.text(formatDate(data.dob), margin + 170, y + 7);
+  drawFitText(doc, formatDate(data.dob), margin + 170, y + 7, 25, 10);
 
   y += rowHeight;
 
@@ -146,12 +180,12 @@ export const generateStudentPDF = async (data, shouldSave = true) => {
   doc.setFont('helvetica', 'bold');
   doc.text('Contact No.', margin + 5, y + 7);
   doc.setFont('helvetica', 'normal');
-  doc.text(data.phone || '', margin + 55, y + 7);
+  drawFitText(doc, data.phone || '', margin + 55, y + 7, 52, 10);
 
   doc.setFont('helvetica', 'bold');
   doc.text('Email ID', margin + 112, y + 7);
   doc.setFont('helvetica', 'normal');
-  doc.text(data.email || '', margin + 130, y + 7);
+  drawFitText(doc, data.email || '', margin + 130, y + 7, 55, 10);
 
   y += rowHeight;
 
@@ -161,7 +195,7 @@ export const generateStudentPDF = async (data, shouldSave = true) => {
   doc.setFont('helvetica', 'bold');
   doc.text('Address', margin + 20, y + 15);
   doc.setFont('helvetica', 'normal');
-  doc.text( data.permanentAddress  || data.address|| '', margin + 55, y + 7, { maxWidth: contentWidth - 60 });
+  drawFitText(doc, data.permanentAddress || data.address || '', margin + 55, y + 7, contentWidth - 60, 10);
 
   y += rowHeight * 3;
 
@@ -256,7 +290,7 @@ export const generateStudentPDF = async (data, shouldSave = true) => {
 // ==========================================
 // FACULTY / STAFF PDF GENERATOR (UPDATED)
 // ==========================================
-export const generateFacultyStaffPDF = async (data, shouldSave = true) => {
+export const generateFacultyStaffPDF = async (data, shouldSave = true, photoData = null) => {
   const doc = new jsPDF('p', 'mm', 'a4');
   const pageWidth = doc.internal.pageSize.getWidth();
   const margin = 10;
@@ -265,6 +299,15 @@ export const generateFacultyStaffPDF = async (data, shouldSave = true) => {
   const logoData = await getLogoData();
   if (logoData) {
     doc.addImage(logoData, 'PNG', margin + 2, margin + 2, 25, 25);
+  }
+
+  // Photo resolution priority:
+  //  1. photoData arg  — passed at submission time before API call (always base64)
+  //  2. data.photoBase64 — stored in MongoDB at submission time (new applications)
+  //  3. data.photoPath  — S3 key for old applications → fetch signed URL as fallback
+  let resolvedPhoto = photoData || data.photoBase64 || null;
+  if (!resolvedPhoto && data.photoPath) {
+    resolvedPhoto = await getPhotoFromS3Key(data.photoPath);
   }
 
   // Outer Border
@@ -302,9 +345,10 @@ export const generateFacultyStaffPDF = async (data, shouldSave = true) => {
   // Row 1
   doc.rect(margin, y, mainTableWidth, rowHeight);
   doc.line(margin + col1, y, margin + col1, y + rowHeight);
+  doc.setFont('helvetica', 'bold');
   doc.text('Name of the Staff', margin + 2, y + 5);
   doc.setFont('helvetica', 'normal');
-  drawFitText(doc, data.staffName || data.name || '', margin + col1 + 2, y + 5, mainTableWidth - col1 - 2, 10);
+  drawFitText(doc, data.staffName || data.name || '', margin + col1 + 2, y + 5, mainTableWidth - col1 - 18, 10);
   y += rowHeight;
 
   // Row 2
@@ -315,11 +359,11 @@ export const generateFacultyStaffPDF = async (data, shouldSave = true) => {
   doc.setFont('helvetica', 'bold');
   doc.text('Staff No.', margin + 2, y + 5);
   doc.setFont('helvetica', 'normal');
-  doc.text(data.staffNo || '', margin + col1 + 2, y + 5, { maxWidth: col2 - col1 - 2 });
+  drawFitText(doc, data.staffNo || '', margin + col1 + 2, y + 5, col2 - col1 - 4, 10);
   doc.setFont('helvetica', 'bold');
   doc.text('Designation', margin + col2 + 2, y + 5);
   doc.setFont('helvetica', 'normal');
-  drawFitText(doc, data.designation || '', margin + col3 + 2, y + 5, mainTableWidth - col3 - 2, 10);
+  drawFitText(doc, data.designation || '', margin + col3 + 2, y + 5, mainTableWidth - col3 - 18, 10);
   y += rowHeight;
 
   // Row 3
@@ -331,17 +375,17 @@ export const generateFacultyStaffPDF = async (data, shouldSave = true) => {
   doc.text('Title: Prof. / Dr./', margin + 2, y + 3);
   doc.text('Mr. / Ms. / Mrs.', margin + 2, y + 6);
   doc.setFont('helvetica', 'normal');
-  doc.text(data.title || '', margin + col1 + 2, y + 5);
+  drawFitText(doc, data.title || '', margin + col1 + 2, y + 5, col2 - col1 - 4, 10);
   doc.setFont('helvetica', 'bold');
   doc.text('Gender:', margin + col2 + 2, y + 3);
   doc.text('M/F', margin + col2 + 2, y + 6);
   doc.setFont('helvetica', 'normal');
-  doc.text(data.gender === 'Male' ? 'M' : 'F', margin + col3 - 10, y + 5);
+  drawFitText(doc, data.gender === 'Male' ? 'M' : 'F', margin + col3 - 10, y + 5, 10, 10);
   doc.setFont('helvetica', 'bold');
   doc.text('Blood', margin + col3 + 2, y + 3);
   doc.text('Group', margin + col3 + 2, y + 6);
   doc.setFont('helvetica', 'normal');
-  doc.text(data.bloodGroup || '', margin + col3 + 15, y + 5);
+  drawFitText(doc, data.bloodGroup || '', margin + col3 + 15, y + 5, mainTableWidth - col3 - 17, 10);
   y += rowHeight;
 
   // Row 4
@@ -351,11 +395,11 @@ export const generateFacultyStaffPDF = async (data, shouldSave = true) => {
   doc.setFont('helvetica', 'bold');
   doc.text('Dept./ Section', margin + 2, y + 5);
   doc.setFont('helvetica', 'normal');
-  doc.text(data.department || '', margin + col1 + 2, y + 5, { maxWidth: col3 - col1 - 2 });
+  drawFitText(doc, data.department || '', margin + col1 + 2, y + 5, col3 - col1 - 4, 10);
   doc.setFont('helvetica', 'bold');
   doc.text('D.O.B', margin + col3 + 2, y + 5);
   doc.setFont('helvetica', 'normal');
-  doc.text(formatDate(data.dob), margin + col3 + 13, y + 5);
+  drawFitText(doc, formatDate(data.dob), margin + col3 + 13, y + 5, mainTableWidth - col3 - 15, 10);
   y += rowHeight;
 
   // Row 5
@@ -365,11 +409,11 @@ export const generateFacultyStaffPDF = async (data, shouldSave = true) => {
   doc.setFont('helvetica', 'bold');
   doc.text('Date of Joining', margin + 2, y + 5);
   doc.setFont('helvetica', 'normal');
-  doc.text(formatDate(data.joiningDate), margin + col1 + 2, y + 5);
+  drawFitText(doc, formatDate(data.joiningDate), margin + col1 + 2, y + 5, col2 - col1 - 4, 10);
   doc.setFont('helvetica', 'bold');
   doc.text('Date of Retirement', margin + col2 + 2, y + 5);
   doc.setFont('helvetica', 'normal');
-  doc.text(formatDate(data.retirementDate), margin + col2 + 35, y + 5);
+  drawFitText(doc, formatDate(data.retirementDate), margin + col2 + 35, y + 5, mainTableWidth - col2 - 37, 10);
   y += rowHeight;
 
   // Contact No
@@ -378,7 +422,7 @@ export const generateFacultyStaffPDF = async (data, shouldSave = true) => {
   doc.setFont('helvetica', 'bold');
   doc.text('Contact No.', margin + 2, y + 5);
   doc.setFont('helvetica', 'normal');
-  doc.text(data.phone || '', margin + col1 + 2, y + 5);
+  drawFitText(doc, data.phone || '', margin + col1 + 2, y + 5, mainTableWidth - col1 - 20, 10);
   y += rowHeight;
 
   // Email ID
@@ -387,15 +431,28 @@ export const generateFacultyStaffPDF = async (data, shouldSave = true) => {
   doc.setFont('helvetica', 'bold');
   doc.text('Email ID', margin + 2, y + 5);
   doc.setFont('helvetica', 'normal');
-  doc.text(data.email || '', margin + col1 + 2, y + 5);
+  drawFitText(doc, data.email || '', margin + col1 + 2, y + 5, mainTableWidth - col1 - 20, 10);
   y += rowHeight;
 
   // Photo Box
-  doc.rect(margin + mainTableWidth, 53, 50, y - 53);
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(8);
-  doc.text('Recent Passport Size', margin + mainTableWidth + 10, 70);
-  doc.text('Photo', margin + mainTableWidth + 20, 75);
+  const photoBoxX = margin + mainTableWidth + 2;
+  const photoBoxY = 53;
+  const photoBoxW = 46;
+  const photoBoxH = y - 53;
+  doc.rect(margin + mainTableWidth, photoBoxY, photoBoxW + 2, photoBoxH);
+
+  if (resolvedPhoto) {
+    // Fit photo inside the box with a small padding
+    const pad = 2;
+    const maxW = photoBoxW - pad * 2;
+    const maxH = photoBoxH - pad * 2;
+    doc.addImage(resolvedPhoto, 'PNG', photoBoxX + pad, photoBoxY + pad, maxW, maxH, undefined, 'FAST');
+  } else {
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(7);
+    doc.text('Passport Size', photoBoxX + 5, photoBoxY + (photoBoxH / 2) - 4);
+    doc.text('Photo', photoBoxX + 12, photoBoxY + (photoBoxH / 2) + 1);
+  }
 
   // Address
   doc.setFontSize(10);
@@ -404,8 +461,7 @@ export const generateFacultyStaffPDF = async (data, shouldSave = true) => {
   doc.setFont('helvetica', 'bold');
   doc.text('Address', margin + 15, y + 10);
   doc.setFont('helvetica', 'normal');
-  //  doc.text( data.permanentAddress  || data.address|| '', margin + 55, y + 7, { maxWidth: contentWidth - 60 });
-  doc.text( data.permanentAddress  || data.address || '', margin + col1 + 2, y + 5, { maxWidth: contentWidth - col1 - 5 });
+  drawFitText(doc, data.permanentAddress || data.address || '', margin + col1 + 2, y + 5, contentWidth - col1 - 7, 10);
   y += rowHeight * 3;
 
   // Request Category
@@ -472,7 +528,7 @@ export const generateFacultyStaffPDF = async (data, shouldSave = true) => {
   doc.line(margin + col1, y, margin + col1, y + rowHeight);
   doc.text('Data to be Changed', margin + 2, y + 5);
   doc.setFont('helvetica', 'normal');
-  doc.text(data.dataToChange?.join(', ') || '', margin + col1 + 2, y + 5);
+  drawFitText(doc, data.dataToChange?.join(', ') || '', margin + col1 + 2, y + 5, contentWidth - col1 - 5, 10);
   y += rowHeight;
 
   doc.rect(margin, y, contentWidth, rowHeight);

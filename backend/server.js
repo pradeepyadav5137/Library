@@ -1,3 +1,5 @@
+import path from 'path';
+import { fileURLToPath } from 'url';
 import express from 'express';
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
@@ -10,6 +12,8 @@ import connectDB from './config/db.js';
 import authRoutes from './routes/auth.js';
 import applicationRoutes from './routes/applications.js';
 import adminRoutes from './routes/admin.js';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 dotenv.config();
 
@@ -46,6 +50,9 @@ connectDB();
 // Apply limiters
 app.use('/api/auth/admin-login', loginLimiter);
 app.use('/api/auth/send-otp', otpLimiter);
+
+// Serve uploaded files (photos, FIR copies, etc.)
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // Routes
 app.use('/api/auth', authRoutes);

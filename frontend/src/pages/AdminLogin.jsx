@@ -177,7 +177,7 @@ export default function AdminLogin() {
                     <span className="loading-spinner" style={{ marginRight: '8px' }}></span>
                     Authenticating...
                   </>
-                ) : '🔐 Login'}
+                ) : 'Login'}
               </button>
 
               <button
@@ -185,7 +185,7 @@ export default function AdminLogin() {
                 onClick={() => setShowForgot(!showForgot)}
                 className="btn btn-secondary"
               >
-                🔓 Forgot Password?
+                Forgot Password?
               </button>
             </div>
           </form>
@@ -230,7 +230,7 @@ export default function AdminLogin() {
                     <span className="loading-spinner" style={{ marginRight: '8px' }}></span>
                     Verifying...
                   </>
-                ) : '✅ Verify and Login'}
+                ) : 'Verify and Login'}
               </button>
               <button
                 type="button"
@@ -273,7 +273,7 @@ export default function AdminLogin() {
                         <span className="loading-spinner" style={{ marginRight: '8px' }}></span>
                         Sending OTP...
                       </>
-                    ) : '📧 Send OTP to Email'}
+                    ) : 'Send OTP to Email'}
                   </button>
                   <button
                     type="button"
@@ -335,7 +335,7 @@ export default function AdminLogin() {
                         <span className="loading-spinner" style={{ marginRight: '8px' }}></span>
                         Resetting Password...
                       </>
-                    ) : '🔄 Reset Password'}
+                    ) : 'Reset Password'}
                   </button>
                   <button 
                     type="button" 

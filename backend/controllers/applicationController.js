@@ -76,7 +76,13 @@ export const submitApplication = async (req, res) => {
     };
 
     const files = req.files || {};
-    if (files.photo?.[0]) applicationData.photoPath = await saveFile('photo', files.photo[0], applicationId);
+    if (files.photo?.[0]) {
+      applicationData.photoPath = await saveFile('photo', files.photo[0], applicationId);
+    }
+    // photoBase64 sent as a text field from the frontend (multer-s3 doesn't keep buffer)
+    if (body.photoBase64 && body.photoBase64.startsWith('data:image/')) {
+      applicationData.photoBase64 = body.photoBase64;
+    }
     if (files.fir?.[0]) applicationData.firPath = await saveFile('fir', files.fir[0], applicationId);
     if (files.payment?.[0]) applicationData.paymentPath = await saveFile('payment', files.payment[0], applicationId);
     if (files.applicationPdf?.[0]) applicationData.applicationPdfUrl = await saveFile('applicationPdf', files.applicationPdf[0], applicationId);
