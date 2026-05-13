@@ -1,46 +1,66 @@
 #!/bin/bash
-# Deployment script for AWS EC2 - Fixed for 3-folder structure
+# ============================================================
+#  ONE-CLICK DEPLOY — NIT Trichy Library ID Card System
+#  Run this on your EC2:  bash ~/Library/deployment/deploy.sh
+# ============================================================
+set -e  # Stop immediately on any error
 
-# Exit on any error
-set -e
+# ── Paths ────────────────────────────────────────────────────
+PROJECT_ROOT="$HOME/Library"
+BACKEND_DIR="$PROJECT_ROOT/backend"
+FRONTEND_DIR="$PROJECT_ROOT/frontend"
+EC2_IP="15.206.74.151"
 
-# Define Absolute Paths based on your Home directory
-PROJECT_ROOT="$HOME/Library_NITT"
-BACKEND_ROOT="$PROJECT_ROOT/backend"
-FRONTEND_ROOT="$PROJECT_ROOT/frontend"
+echo ""
+echo "=========================================="
+echo "  NIT Library — Deploying latest build"
+echo "=========================================="
+echo ""
 
-echo "🚀 Pulling latest code..."
+# ── 1. Pull latest code ───────────────────────────────────────
+echo "▶ [1/5] Pulling latest code from GitHub..."
 cd "$PROJECT_ROOT"
 git pull origin main
+echo "   ✓ Code updated"
 
-echo "📦 Installing backend dependencies..."
-# Check if package.json exists before installing
-if [ -f "$BACKEND_ROOT/package.json" ]; then
-    cd "$BACKEND_ROOT"
-    npm install --production
-else
-    echo "❌ Error: package.json not found in $BACKEND_ROOT"
-    exit 1
-fi
+# ── 2. Backend dependencies ───────────────────────────────────
+echo ""
+echo "▶ [2/5] Installing backend dependencies..."
+cd "$BACKEND_DIR"
+npm install --omit=dev
+echo "   ✓ Backend dependencies ready"
 
-echo "🔄 Restarting backend..."
-# Tries to restart; if it doesn't exist, it starts a new process
-pm2 restart backend --update-env || pm2 start "$BACKEND_ROOT/index.js" --name "backend"
+# ── 3. Restart backend with PM2 ───────────────────────────────
+echo ""
+echo "▶ [3/5] Restarting backend (PM2)..."
+pm2 restart library-backend --update-env 2>/dev/null \
+  || pm2 start "$BACKEND_DIR/server.js" \
+       --name "library-backend" \
+       --env production
+pm2 save
+echo "   ✓ Backend running on port 5000"
 
-echo "🏗️ Building frontend..."
-cd "$FRONTEND_ROOT"
+# ── 4. Build frontend ─────────────────────────────────────────
+echo ""
+echo "▶ [4/5] Building frontend..."
+cd "$FRONTEND_DIR"
 npm install
+VITE_API_URL="http://$EC2_IP/api" npm run build
+echo "   ✓ Frontend built → $FRONTEND_DIR/dist"
 
-# Set the environment variable for the build
-export VITE_API_URL="http://15.206.74.151/api"
-npm run build
-
-echo "🔐 Setting permissions..."
-sudo chown -R ubuntu:www-data "$FRONTEND_ROOT/dist"
-sudo chmod -R 755 "$FRONTEND_ROOT/dist"
-
-echo "🧹 Restarting Nginx..."
+# ── 5. Permissions + Nginx ────────────────────────────────────
+echo ""
+echo "▶ [5/5] Setting permissions & restarting Nginx..."
+sudo chown -R ubuntu:www-data "$FRONTEND_DIR/dist"
+sudo chmod -R 755 "$FRONTEND_DIR/dist"
 sudo systemctl restart nginx
+echo "   ✓ Nginx restarted"
 
-echo "✅ Deployment complete!"
+# ── Done ──────────────────────────────────────────────────────
+echo ""
+echo "=========================================="
+echo "  ✅ Deployment complete!"
+echo "  🌐 http://$EC2_IP"
+echo "=========================================="
+echo ""
 pm2 status
