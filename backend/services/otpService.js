@@ -26,20 +26,22 @@ export const createAndSendOtp = async (email, subject, textTemplate, htmlTemplat
   const hashedOtp = await bcrypt.hash(rawOtp, salt);
   const expiresAt = new Date(Date.now() + OTP_EXPIRY_MINUTES * 60 * 1000);
 
-  if (existingOtpDoc && existingOtpDoc.attempts < MAX_OTP_ATTEMPTS) {
+  if (existingOtpDoc) {
     existingOtpDoc.otp = hashedOtp;
     existingOtpDoc.expiresAt = expiresAt;
     existingOtpDoc.lastAttempt = new Date();
+    existingOtpDoc.attempts = 0;
+
     await existingOtpDoc.save();
-  } else {
+} else {
     await Otp.create({
-      email,
-      otp: hashedOtp,
-      expiresAt,
-      lastAttempt: new Date(),
-      attempts: 0
+        email,
+        otp: hashedOtp,
+        expiresAt,
+        lastAttempt: new Date(),
+        attempts: 0
     });
-  }
+}
 
   const text = textTemplate.replace('{{OTP}}', rawOtp);
   const html = htmlTemplate.replace('{{OTP}}', rawOtp);
@@ -59,7 +61,6 @@ export const verifyOtp = async (email, rawOtp) => {
     throw new Error('OTP has expired');
   }
 
-  const isValid = await bcrypt.compare(rawOtp, otpDoc.otp);
 
   // if (!isValid) {
   //   throw new Error('Invalid OTP');
