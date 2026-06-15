@@ -3,7 +3,7 @@ import Otp from '../models/Otp.js';
 import { sendMail } from './emailService.js';
 
 export const OTP_EXPIRY_MINUTES = 5;
-export const MAX_OTP_ATTEMPTS = 50;
+export const MAX_OTP_ATTEMPTS = 5;
 export const OTP_COOLDOWN_SECONDS = 10;
 
 const generateRandomOtp = () => {
@@ -19,16 +19,6 @@ export const createAndSendOtp = async (email, subject, textTemplate, htmlTemplat
     if (existingOtpDoc.lastAttempt && (now - existingOtpDoc.lastAttempt) < OTP_COOLDOWN_SECONDS * 1000) {
       throw new Error(`Please wait ${OTP_COOLDOWN_SECONDS} seconds before requesting a new OTP.`);
     }
-
-    // Check max attempts
-    if (existingOtpDoc.attempts >= MAX_OTP_ATTEMPTS) {
-      if (now < existingOtpDoc.expiresAt) {
-        throw new Error('Maximum OTP attempts reached. Please try again later.');
-      } else {
-        // Reset attempts if expired
-        await Otp.deleteOne({ _id: existingOtpDoc._id });
-      }
-    }
   }
 
   const rawOtp = generateRandomOtp();
@@ -40,7 +30,6 @@ export const createAndSendOtp = async (email, subject, textTemplate, htmlTemplat
     existingOtpDoc.otp = hashedOtp;
     existingOtpDoc.expiresAt = expiresAt;
     existingOtpDoc.lastAttempt = new Date();
-    existingOtpDoc.attempts += 1;
     await existingOtpDoc.save();
   } else {
     await Otp.create({
@@ -48,7 +37,7 @@ export const createAndSendOtp = async (email, subject, textTemplate, htmlTemplat
       otp: hashedOtp,
       expiresAt,
       lastAttempt: new Date(),
-      attempts: 1
+      attempts: 0
     });
   }
 
@@ -72,9 +61,30 @@ export const verifyOtp = async (email, rawOtp) => {
 
   const isValid = await bcrypt.compare(rawOtp, otpDoc.otp);
 
-  if (!isValid) {
-    throw new Error('Invalid OTP');
-  }
+  // if (!isValid) {
+  //   throw new Error('Invalid OTP');
+  // }
+
+  const isValid = await bcrypt.compare(rawOtp, otpDoc.otp);
+
+if (!isValid) {
+
+    otpDoc.attempts += 1;
+
+    if (otpDoc.attempts >= MAX_OTP_ATTEMPTS) {
+        await Otp.deleteOne({ _id: otpDoc._id });
+
+        throw new Error(
+            'Too many invalid OTP attempts. Please generate a new OTP.'
+        );
+    }
+
+    await otpDoc.save();
+
+    throw new Error(
+        `Invalid OTP. ${MAX_OTP_ATTEMPTS - otpDoc.attempts} attempts remaining.`
+    );
+}
 
   await Otp.deleteOne({ _id: otpDoc._id });
   return true;
