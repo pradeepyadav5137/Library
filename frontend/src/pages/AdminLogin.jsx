@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { adminAPI } from '../services/api' 
+import { adminAPI } from '../services/api'
 import './Admin.css'
 
 export default function AdminLogin() {
@@ -114,8 +114,8 @@ export default function AdminLogin() {
   const handleForgotReset = async (e) => {
     e.preventDefault()
     setForgotError('')
-    if (!newPassword || newPassword.length < 6) {
-      setForgotError('Password must be at least 6 characters')
+    if (!newPassword || newPassword.length < 8) {
+      setForgotError('Password must be at least 8 characters')
       return
     }
     setForgotLoading(true)
@@ -169,7 +169,7 @@ export default function AdminLogin() {
                 disabled={loading}
               />
             </div>
-            
+
             <div className="button-group" style={{ marginTop: '25px' }}>
               <button type="submit" disabled={loading} className="btn btn-primary">
                 {loading ? (
@@ -249,9 +249,9 @@ export default function AdminLogin() {
             <p className="form-description">
               Enter your admin email to receive OTP for password reset
             </p>
-            
+
             {forgotError && <div className="error-message">{forgotError}</div>}
-            
+
             {forgotStep === 'email' ? (
               <form onSubmit={handleForgotSendOtp}>
                 <div className="form-group">
@@ -321,8 +321,8 @@ export default function AdminLogin() {
                     type="password"
                     value={newPassword}
                     onChange={(e) => setNewPassword(e.target.value)}
-                    placeholder="Minimum 6 characters"
-                    minLength={6}
+                    placeholder="Minimum 8 characters with (a-z, A-Z, 0-9, !@#$%^&*)"
+                    minLength={8}
                     required
                     disabled={forgotLoading}
                   />
@@ -337,9 +337,9 @@ export default function AdminLogin() {
                       </>
                     ) : 'Reset Password'}
                   </button>
-                  <button 
-                    type="button" 
-                    onClick={() => setForgotStep('email')} 
+                  <button
+                    type="button"
+                    onClick={() => setForgotStep('email')}
                     className="btn btn-secondary"
                   >
                     ↩ Try Different Email

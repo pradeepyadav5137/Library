@@ -2,17 +2,23 @@ import jwt from 'jsonwebtoken';
 import Admin from '../models/Admin.js';
 import { createAndSendOtp, verifyOtp, OTP_EXPIRY_MINUTES } from './otpService.js';
 
+// Sign a JWT and set it as an httpOnly cookie
 export const issueJwtCookie = (res, payload, expiresInStr, maxAgeMs) => {
   const token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: expiresInStr });
+
+  const isSecure = process.env.NODE_ENV === 'production' && process.env.COOKIE_SECURE !== 'false';
+
   res.cookie('token', token, {
     httpOnly: true,
-    secure: true,
-    sameSite: 'strict',
+    secure: isSecure,
+    sameSite: isSecure ? 'strict' : 'lax',
     maxAge: maxAgeMs
   });
+
   return token;
 };
 
+// Verify admin username and password
 export const verifyAdminCredentials = async (username, password) => {
   const admin = await Admin.findOne({ username });
   if (!admin) {
@@ -27,6 +33,7 @@ export const verifyAdminCredentials = async (username, password) => {
   return admin;
 };
 
+// Send 2FA OTP to admin's registered email
 export const sendAdminLoginOtp = async (admin) => {
   const subject = 'NITT Admin – Login OTP';
   const textTemplate = `Your OTP for admin login is: {{OTP}}. It is valid for ${OTP_EXPIRY_MINUTES} minutes. Do not share this with anyone.`;
@@ -62,6 +69,7 @@ export const sendAdminLoginOtp = async (admin) => {
   await createAndSendOtp(admin.email, subject, textTemplate, htmlTemplate);
 };
 
+// Verify admin 2FA OTP and issue JWT cookie
 export const verifyAdminLoginOtpAndIssueToken = async (res, username, rawOtp) => {
   const admin = await Admin.findOne({ username });
   if (!admin) {
@@ -76,10 +84,12 @@ export const verifyAdminLoginOtpAndIssueToken = async (res, username, rawOtp) =>
   return { token, admin: { id: admin._id, username: admin.username, role: admin.role } };
 };
 
+// Clear the auth cookie
 export const logoutUser = (res) => {
+  const isSecure = process.env.NODE_ENV === 'production' && process.env.COOKIE_SECURE !== 'false';
   res.clearCookie('token', {
     httpOnly: true,
-    secure: true,
-    sameSite: 'strict'
+    secure: isSecure,
+    sameSite: isSecure ? 'strict' : 'lax'
   });
 };

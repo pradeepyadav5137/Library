@@ -1,5 +1,3 @@
-
-
 import express from 'express';
 import {
   getAllApplications,
@@ -17,7 +15,6 @@ import { adminAuth } from '../middleware/adminAuth.js';
 
 const router = express.Router();
 
-// All admin routes require authentication
 router.use(adminAuth);
 
 // ===== APPLICATION ROUTES =====
@@ -25,7 +22,8 @@ router.get('/applications', getAllApplications);
 router.get('/applications/:id', getApplicationById);
 router.patch('/applications/:id/status', updateApplicationStatus);
 router.delete('/applications/:id', (req, res) => {
-  const { hardDelete } = req.body;
+  // Use query param instead of body for DELETE (body may not be parsed by all clients)
+  const hardDelete = req.query.hardDelete === 'true' || req.body?.hardDelete;
   if (hardDelete) {
     return hardDeleteApplication(req, res);
   }
@@ -42,4 +40,3 @@ router.delete('/admins/:id', deleteAdmin);
 router.patch('/admins/:id/role', updateAdminRole);
 
 export default router;
-

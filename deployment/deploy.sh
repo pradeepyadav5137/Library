@@ -9,7 +9,7 @@ set -e  # Stop immediately on any error
 PROJECT_ROOT="$HOME/Library"
 BACKEND_DIR="$PROJECT_ROOT/backend"
 FRONTEND_DIR="$PROJECT_ROOT/frontend"
-EC2_IP="15.206.74.151"
+EC2_IP="[IP_ADDRESS]"
 
 echo ""
 echo "=========================================="

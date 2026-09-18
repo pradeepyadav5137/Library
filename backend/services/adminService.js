@@ -26,8 +26,15 @@ export const generateS3SignedUrl = async (s3Key, expiresInSec = 3600) => {
   }
 };
 
-export const deleteS3File = async (s3Key) => {
-  if (!s3Key) return;
+/**
+ * Delete a file from S3.
+ * @param {string} s3Key
+ * @param {object} options
+ * @param {boolean} options.throwOnError - If true, throw on failure. Default: false (log warning).
+ * @returns {Promise<boolean>} true if deleted successfully or key was empty
+ */
+export const deleteS3File = async (s3Key, { throwOnError = false } = {}) => {
+  if (!s3Key) return true;
   try {
     await s3.send(
       new DeleteObjectCommand({
@@ -35,8 +42,13 @@ export const deleteS3File = async (s3Key) => {
         Key: s3Key,
       })
     );
+    return true;
   } catch (error) {
+    if (throwOnError) {
+      throw new Error('Failed to delete associated file. Please try again or contact support.');
+    }
     console.warn('Failed to delete from S3:', error.message);
+    return false;
   }
 };
 
@@ -49,9 +61,6 @@ export const attachSignedUrls = async (app, expiresInSec = 3600) => {
 };
 
 export const checkSuperadmin = (adminUser) => {
-  if (adminUser?.email === '205124066@nitt.edu') {
-    return; // Allow specific email as superadmin unconditionally
-  }
   if (adminUser?.role !== 'superadmin') {
     throw new Error('Only superadmin can perform this action');
   }

@@ -4,20 +4,13 @@ import './Home.css'
 
 export default function Home() {
   
-  // --- NUCLEAR CLEANUP ON HOME LOAD ---
+  // --- CLEANUP ON HOME LOAD ---
   useEffect(() => {
-    console.log("Home Page: Wiping all verified sessions...");
-    
-    // 1. Clear Local Storage (Where Token, Email, and Form Data live)
+    // 1. Clear Local Storage (Where Email and Form Data live)
     localStorage.clear();
     
     // 2. Clear Session Storage (Any temporary tabs info)
     sessionStorage.clear();
-    
-    // 3. Clear any cookie-based tokens (just to be safe)
-    document.cookie.split(";").forEach((c) => {
-      document.cookie = c.replace(/^ +/, "").replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/");
-    });
   }, []);
   // -------------------------------------
 

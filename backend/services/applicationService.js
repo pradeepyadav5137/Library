@@ -10,8 +10,16 @@ export const STATUS_FLOW = [
   'printed'
 ];
 
+const VALID_STATUSES = [...STATUS_FLOW, 'rejected'];
+
+// Escape regex metacharacters to prevent ReDoS
+function escapeRegex(str) {
+  return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+// Update application status with workflow transition enforcement
 export const updateApplicationStatusService = async (id, status, reason = null) => {
-  if (!STATUS_FLOW.includes(status) && !['pending', 'approved', 'rejected'].includes(status)) {
+  if (!VALID_STATUSES.includes(status)) {
     throw new Error('Invalid status');
   }
 
@@ -23,7 +31,7 @@ export const updateApplicationStatusService = async (id, status, reason = null) 
     throw new Error('Application not found');
   }
 
-  // Enforce valid transitions (no skipping)
+  // Enforce sequential status transitions (no skipping steps)
   const oldStatusIndex = STATUS_FLOW.indexOf(application.status);
   const newStatusIndex = STATUS_FLOW.indexOf(status);
 
@@ -39,7 +47,7 @@ export const updateApplicationStatusService = async (id, status, reason = null) 
 
   await application.save();
 
-  // Determine next step
+  // Determine next step in workflow
   const currentIndex = STATUS_FLOW.indexOf(status);
   let nextStep = null;
   if (currentIndex !== -1 && currentIndex < STATUS_FLOW.length - 1) {
@@ -48,7 +56,7 @@ export const updateApplicationStatusService = async (id, status, reason = null) 
 
   // Send status update email
   const subject = `NITT ID Card Application Status Update: ${status}`;
-  
+
   let contentHtml = `<p style="margin: 5px 0;"><strong>Status:</strong> ${status}</p>`;
   if (nextStep) {
     contentHtml += `<p style="margin: 5px 0;"><strong>Next Step:</strong> ${nextStep}</p>`;
@@ -58,7 +66,7 @@ export const updateApplicationStatusService = async (id, status, reason = null) 
   }
 
   const textTemplate = `Your application (${application.applicationId}) status has been updated to: ${status}.${nextStep ? `\nNext Step: ${nextStep}` : ''}${reason ? `\nReason: ${reason}` : ''}`;
-  
+
   const htmlTemplate = `
       <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.05);">
         <div style="background-color: #1a365d; padding: 20px; text-align: center;">
@@ -95,6 +103,7 @@ export const updateApplicationStatusService = async (id, status, reason = null) 
   return application;
 };
 
+// Get dashboard statistics
 export const getApplicationStatsService = async () => {
   const [total, pending, approved, rejected, student, faculty] = await Promise.all([
     Application.countDocuments({ isDeleted: false }),
@@ -107,6 +116,7 @@ export const getApplicationStatsService = async () => {
   return { total, pending, approved, rejected, student, faculty };
 };
 
+// Query applications with optional filters and search
 export const getAllApplicationsService = async (query) => {
   const { status, userType, search } = query;
 
@@ -114,11 +124,12 @@ export const getAllApplicationsService = async (query) => {
   if (status && status !== 'all') dbQuery.status = status;
   if (userType && userType !== 'all') dbQuery.userType = userType;
   if (search) {
+    const sanitized = escapeRegex(String(search).substring(0, 200));
     dbQuery.$or = [
-      { name: { $regex: search, $options: 'i' } },
-      { email: { $regex: search, $options: 'i' } },
-      { rollNo: { $regex: search, $options: 'i' } },
-      { applicationId: { $regex: search, $options: 'i' } },
+      { name: { $regex: sanitized, $options: 'i' } },
+      { email: { $regex: sanitized, $options: 'i' } },
+      { rollNo: { $regex: sanitized, $options: 'i' } },
+      { applicationId: { $regex: sanitized, $options: 'i' } },
     ];
   }
 

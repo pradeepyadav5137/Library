@@ -7,7 +7,9 @@ import {
   issueJwtCookie
 } from '../services/authService.js';
 import { createAndSendOtp, verifyOtp, OTP_EXPIRY_MINUTES } from '../services/otpService.js';
+import { validatePassword } from '../utils/passwordValidator.js';
 
+// Send OTP to student/faculty/staff email
 export const sendOtp = async (req, res) => {
   try {
     const { rollNo, email, userType } = req.body;
@@ -87,6 +89,7 @@ export const sendOtp = async (req, res) => {
   }
 };
 
+// Verify OTP and issue JWT cookie for applicant session
 export const verifyEmailOtp = async (req, res) => {
   try {
     const { email, otp, userType } = req.body;
@@ -124,6 +127,7 @@ export const verifyEmailOtp = async (req, res) => {
   }
 };
 
+// Admin login step 1: verify credentials, send 2FA OTP
 export const adminLoginStep1 = async (req, res) => {
   try {
     const { username, password } = req.body;
@@ -141,6 +145,7 @@ export const adminLoginStep1 = async (req, res) => {
   }
 };
 
+// Admin login step 2: verify 2FA OTP, issue JWT cookie
 export const adminLoginStep2 = async (req, res) => {
   try {
     const { username, otp } = req.body;
@@ -155,6 +160,7 @@ export const adminLoginStep2 = async (req, res) => {
   }
 };
 
+// Admin forgot password: send OTP to admin email
 export const adminForgotPassword = async (req, res) => {
   try {
     const { email } = req.body;
@@ -163,8 +169,10 @@ export const adminForgotPassword = async (req, res) => {
     }
     const e = email.trim().toLowerCase();
     const admin = await Admin.findOne({ email: e });
+
+    // Don't reveal whether the email exists
     if (!admin) {
-      return res.status(404).json({ message: 'No admin account found with this email' });
+      return res.json({ success: true, message: 'If an admin account exists with this email, an OTP has been sent' });
     }
 
     const subject = 'NITT Admin – Password Reset OTP';
@@ -200,7 +208,7 @@ export const adminForgotPassword = async (req, res) => {
 
     await createAndSendOtp(e, subject, textTemplate, htmlTemplate);
 
-    res.json({ success: true, message: 'OTP sent to your email' });
+    res.json({ success: true, message: 'If an admin account exists with this email, an OTP has been sent' });
   } catch (error) {
     console.error('Forgot password error:', error);
     res.status(error.message.includes('wait') || error.message.includes('Maximum') ? 429 : 500)
@@ -208,12 +216,19 @@ export const adminForgotPassword = async (req, res) => {
   }
 };
 
+// Admin reset password: verify OTP and update password
 export const adminResetPassword = async (req, res) => {
   try {
     const { email, otp, newPassword } = req.body;
     if (!email || !otp || !newPassword) {
       return res.status(400).json({ message: 'Email, OTP and new password are required' });
     }
+
+    const passwordCheck = validatePassword(newPassword);
+    if (!passwordCheck.valid) {
+      return res.status(400).json({ message: passwordCheck.message });
+    }
+
     const e = email.trim().toLowerCase();
 
     await verifyOtp(e, String(otp).trim());
@@ -233,6 +248,7 @@ export const adminResetPassword = async (req, res) => {
   }
 };
 
+// Logout: clear auth cookie
 export const logout = (req, res) => {
   logoutUser(res);
   res.json({ success: true, message: 'Logged out successfully' });

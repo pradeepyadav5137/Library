@@ -4,7 +4,7 @@ export const validateApplicationSubmit = (req, res, next) => {
   const body = req.body;
   const userType = body.userType;
 
-  // Basic structure
+  // Basic structure validation
   const schema = Joi.object({
     userType: Joi.string().valid('student', 'faculty', 'staff').required(),
     requestCategory: Joi.string().valid('Lost', 'Damaged', 'Correction', 'Stolen', 'New', 'Update', 'Replacement', 'Upgrade').required(),
@@ -28,10 +28,8 @@ export const validateApplicationSubmit = (req, res, next) => {
     }
   }
 
-  if (requestCategory === 'Update') {
-    if (userType === 'student') {
-      return res.status(400).json({ message: 'Students are not allowed to apply for "Update".' });
-    }
+  if (requestCategory === 'Update' && userType === 'student') {
+    return res.status(400).json({ message: 'Students are not allowed to apply for "Update".' });
   }
 
   // Payment rules

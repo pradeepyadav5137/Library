@@ -78,7 +78,6 @@ export default function StudentForm() {
 
   useEffect(() => {
     window.scrollTo(0, 0);
-    // const token = localStorage.getItem('token');
     const userType = localStorage.getItem('userType');
 
     if (!verifiedRollNo || userType !== 'student') {

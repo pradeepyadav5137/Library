@@ -1,6 +1,7 @@
 import express from 'express';
 import AWS from 'aws-sdk';
 import { upload } from '../middleware/upload.js';
+import { validateFileContent } from '../middleware/validateFileContent.js';
 import { verifyToken, verifyAdmin } from '../middleware/auth.js';
 import {
   submitApplication,
@@ -11,7 +12,6 @@ import { validateApplicationSubmit } from '../utils/validators.js';
 
 const router = express.Router();
 
-// ---- S3 signed URL helper ----
 const s3 = new AWS.S3({
   accessKeyId: process.env.AWS_ACCESS_KEY_ID,
   secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
@@ -19,10 +19,8 @@ const s3 = new AWS.S3({
 });
 
 // GET /api/applications/signed-url?key=applications/...
-// Returns a 60-second pre-signed URL for a private S3 object.
-// Requires the caller to supply the exact S3 key (which they already have
-// from the application data), so there is no security escalation.
-router.get('/signed-url', async (req, res) => {
+// Returns a 120-second pre-signed URL for a private S3 object.
+router.get('/signed-url', verifyToken, async (req, res) => {
   try {
     const { key } = req.query;
     if (!key || typeof key !== 'string' || key.trim() === '') {
@@ -38,7 +36,7 @@ router.get('/signed-url', async (req, res) => {
       Key: key,
       Expires: 120,
     };
-    // ?download=1 → force browser save-as instead of opening in-tab
+    // Force browser save-as instead of opening in-tab
     if (req.query.download === '1') {
       params.ResponseContentDisposition = `attachment; filename="${filename}"`;
     }
@@ -51,12 +49,13 @@ router.get('/signed-url', async (req, res) => {
 });
 
 // Submit application (applicant JWT from verify-email)
+// Validates file content using magic bytes after multer parses files
 router.post('/submit', verifyToken, upload.fields([
   { name: 'photo', maxCount: 1 },
   { name: 'fir', maxCount: 1 },
   { name: 'payment', maxCount: 1 },
   { name: 'applicationPdf', maxCount: 1 }
-]), validateApplicationSubmit, submitApplication);
+]), validateFileContent, validateApplicationSubmit, submitApplication);
 
 // Get application status (public by ID)
 router.get('/status/:applicationId', getApplicationStatus);

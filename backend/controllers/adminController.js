@@ -12,7 +12,10 @@ import {
   getApplicationStatsService,
   getAllApplicationsService
 } from '../services/applicationService.js';
+import { validatePassword } from '../utils/passwordValidator.js';
+import { clearAdminCache } from '../middleware/adminAuth.js';
 
+// Get all applications with signed URLs
 export const getAllApplications = async (req, res) => {
   try {
     const applications = await getAllApplicationsService(req.query);
@@ -24,6 +27,7 @@ export const getAllApplications = async (req, res) => {
   }
 };
 
+// Get dashboard stats
 export const getDashboardStats = async (req, res) => {
   try {
     const stats = await getApplicationStatsService();
@@ -34,6 +38,7 @@ export const getDashboardStats = async (req, res) => {
   }
 };
 
+// Get single application by ID with signed URLs
 export const getApplicationById = async (req, res) => {
   try {
     const { id } = req.params;
@@ -48,6 +53,7 @@ export const getApplicationById = async (req, res) => {
   }
 };
 
+// Update application status (enforces workflow transitions)
 export const updateApplicationStatus = async (req, res) => {
   try {
     const { id } = req.params;
@@ -61,6 +67,7 @@ export const updateApplicationStatus = async (req, res) => {
   }
 };
 
+// Soft delete (mark as deleted, keep in DB)
 export const softDeleteApplication = async (req, res) => {
   try {
     const { id } = req.params;
@@ -73,6 +80,7 @@ export const softDeleteApplication = async (req, res) => {
   }
 };
 
+// Hard delete (remove from DB + S3 files, superadmin only)
 export const hardDeleteApplication = async (req, res) => {
   try {
     checkSuperadmin(req.admin);
@@ -81,12 +89,26 @@ export const hardDeleteApplication = async (req, res) => {
     const application = await Application.findOne(query);
     if (!application) return res.status(404).json({ message: 'Application not found' });
 
-    await Promise.all([
-      deleteS3File(application.photoPath),
-      deleteS3File(application.firPath),
-      deleteS3File(application.paymentPath),
-      deleteS3File(application.applicationPdfUrl),
-    ]);
+    // Delete S3 files first — if any fail, abort the DB deletion
+    const s3Keys = [
+      application.photoPath,
+      application.firPath,
+      application.paymentPath,
+      application.applicationPdfUrl,
+    ].filter(Boolean);
+
+    const deletionResults = await Promise.allSettled(
+      s3Keys.map(key => deleteS3File(key, { throwOnError: true }))
+    );
+
+    const failures = deletionResults.filter(r => r.status === 'rejected');
+    if (failures.length > 0) {
+      console.error('S3 deletion failures during hard delete:', failures.map(f => f.reason?.message));
+      return res.status(500).json({
+        message: 'Failed to delete some associated files. Application was not deleted. Please try again.'
+      });
+    }
+
     await Application.findByIdAndDelete(application._id);
 
     res.json({ success: true, message: 'Application and all associated files permanently deleted' });
@@ -96,10 +118,17 @@ export const hardDeleteApplication = async (req, res) => {
   }
 };
 
+// Create new admin (superadmin only)
 export const createAdmin = async (req, res) => {
   try {
     checkSuperadmin(req.admin);
     const { username, email, password, role } = req.body;
+
+    const passwordCheck = validatePassword(password);
+    if (!passwordCheck.valid) {
+      return res.status(400).json({ message: passwordCheck.message });
+    }
+
     const existingAdmin = await Admin.findOne({ $or: [{ username }, { email }] });
     if (existingAdmin) return res.status(400).json({ message: 'Admin with this username or email already exists' });
 
@@ -112,6 +141,7 @@ export const createAdmin = async (req, res) => {
   }
 };
 
+// Get all admins (passwords excluded)
 export const getAllAdmins = async (req, res) => {
   try {
     const admins = await Admin.find().select('-password').sort({ createdAt: -1 }).lean();
@@ -122,6 +152,7 @@ export const getAllAdmins = async (req, res) => {
   }
 };
 
+// Delete admin (superadmin only, cannot delete self)
 export const deleteAdmin = async (req, res) => {
   try {
     checkSuperadmin(req.admin);
@@ -130,6 +161,10 @@ export const deleteAdmin = async (req, res) => {
 
     const admin = await Admin.findByIdAndDelete(id);
     if (!admin) return res.status(404).json({ message: 'Admin not found' });
+
+    // Invalidate cached auth for deleted admin
+    clearAdminCache(id);
+
     res.json({ success: true, message: 'Admin deleted successfully' });
   } catch (error) {
     console.error('Delete admin error:', error);
@@ -137,36 +172,27 @@ export const deleteAdmin = async (req, res) => {
   }
 };
 
-export const getFileSignedUrl = async (req, res) => {
-  try {
-    const { key } = req.query;
-    if (!key) return res.status(400).json({ message: 'File key is required' });
-
-    const url = await generateS3SignedUrl(decodeURIComponent(key), 300); // 5 min
-    res.json({ success: true, url });
-  } catch (error) {
-    console.error('Get signed URL error:', error);
-    res.status(500).json({ message: 'Failed to generate file URL' });
-  }
-};
-
+// Update admin role (superadmin only, cannot change own role)
 export const updateAdminRole = async (req, res) => {
   try {
     checkSuperadmin(req.admin);
     const { id } = req.params;
     const { role } = req.body;
-    
+
     if (req.admin.id === id) {
       return res.status(400).json({ message: 'Cannot change your own role' });
     }
-    
+
     if (!['admin', 'supervisor', 'superadmin'].includes(role)) {
       return res.status(400).json({ message: 'Invalid role specified' });
     }
 
     const admin = await Admin.findByIdAndUpdate(id, { role }, { new: true }).select('-password');
     if (!admin) return res.status(404).json({ message: 'Admin not found' });
-    
+
+    // Invalidate cached auth so role change takes effect immediately
+    clearAdminCache(id);
+
     res.json({ success: true, message: 'Admin role updated successfully', admin });
   } catch (error) {
     console.error('Update admin role error:', error);

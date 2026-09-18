@@ -1,67 +1,41 @@
-
-
 import multer from 'multer';
-import multerS3 from 'multer-s3';
-// import { S3Client } from '@aws-sdk/client-s3';
-import path from 'path';
-import AWS from "aws-sdk";
+import { sanitizeFilename } from './validateFileContent.js';
 
+// Use memory storage to allow validation before writing to disk/S3
+const storage = multer.memoryStorage();
 
-
-
-const s3 = new AWS.S3({
-  accessKeyId: process.env.AWS_ACCESS_KEY_ID,
-  secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
-  region: process.env.AWS_REGION,
-});
-
-
-// File filter (strict validation)
+// File filter (checks MIME type + extensions)
 const fileFilter = (req, file, cb) => {
-  const allowedImageTypes = ['image/jpeg', 'image/png'];
-  const allowedPdf = ['application/pdf'];
-
-  if (file.fieldname === 'photo') {
-    if (!allowedImageTypes.includes(file.mimetype)) {
-      return cb(new Error('Photo must be JPG or PNG'), false);
-    }
+  const allowedTypes = ['image/jpeg', 'image/png', 'application/pdf'];
+  if (!allowedTypes.includes(file.mimetype)) {
+    return cb(new Error('Only JPG, PNG, and PDF files are allowed.'), false);
   }
 
-  if (
-    file.fieldname === 'fir' ||
-    file.fieldname === 'payment' ||
-    file.fieldname === 'applicationPdf'
-  ) {
-    if (
-      !allowedImageTypes.includes(file.mimetype) &&
-      !allowedPdf.includes(file.mimetype)
-    ) {
-      return cb(new Error('Only JPG, PNG or PDF allowed'), false);
-    }
+  // Double check extension mapping for security
+  const ext = file.originalname.split('.').pop().toLowerCase();
+  if (file.mimetype === 'image/jpeg' && !['jpg', 'jpeg'].includes(ext)) {
+    return cb(new Error('File extension does not match content type.'), false);
+  }
+  if (file.mimetype === 'image/png' && ext !== 'png') {
+    return cb(new Error('File extension does not match content type.'), false);
+  }
+  if (file.mimetype === 'application/pdf' && ext !== 'pdf') {
+    return cb(new Error('File extension does not match content type.'), false);
   }
 
+  // Basic sanitization (more thorough check done in validateFileContent middleware)
+  file.originalname = sanitizeFilename(file.originalname);
   cb(null, true);
 };
 
+// Configured upload middleware
 export const upload = multer({
-  storage: multerS3({
-    s3,
-    bucket: process.env.S3_BUCKET_NAME,
-    contentType: multerS3.AUTO_CONTENT_TYPE,
-    key: (req, file, cb) => {
-      // Files stored as: applications/<applicationId>/<fieldname>-<timestamp>.<ext>
-      // applicationId is not yet generated here, so we use a temp folder pattern
-      // The controller will receive file.location (full S3 URL)
-      const ext = path.extname(file.originalname) ||
-        (file.mimetype?.includes('png') ? '.png' :
-         file.mimetype?.includes('pdf') ? '.pdf' : '.jpg');
-      const timestamp = Date.now();
-      const key = `applications/pending/${file.fieldname}-${timestamp}${ext}`;
-      cb(null, key);
-    },
-  }),
-  fileFilter,
+  storage: storage,
+  fileFilter: fileFilter,
   limits: {
     fileSize: Number(process.env.MAX_FILE_SIZE_MB || 5) * 1024 * 1024,
-  },
+    // Accommodate base64 images that are passed as text fields
+    fieldSize: 7 * 1024 * 1024, 
+    files: 5,
+  }
 });

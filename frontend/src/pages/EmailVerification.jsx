@@ -44,7 +44,6 @@ export default function EmailVerification() {
       setStep(2)
       startResendTimer()
     } catch (err) {
-      console.error("Send OTP Error:", err); // Added for easier debugging
       setError(err.message || 'Failed to send OTP. Please try again.')
     }
     setLoading(false)

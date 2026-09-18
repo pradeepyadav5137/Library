@@ -41,29 +41,22 @@ const applicationSchema = new mongoose.Schema({
   dob: Date,
   gender: String,
   bloodGroup: String,
-  
-  // Address
-  // addressLine1: String,
-  // addressLine2: String,
-  // district: String,
-  // state: String,
-  // pinCode: String,
   address: String,
   permanentAddress: String,
 
-  
   // Document request
   requestCategory: {
     type: String,
     enum: [
-    'Lost', 
-    'Damaged', 
-    'Correction', 
-    'Stolen', 
-    'New',          
-    'Update',       
-    'Replacement',
-    'Upgrade' ]
+      'Lost', 
+      'Damaged', 
+      'Correction', 
+      'Stolen', 
+      'New',          
+      'Update',       
+      'Replacement',
+      'Upgrade'
+    ]
   },
   reasonDetails: String,
   
@@ -78,7 +71,7 @@ const applicationSchema = new mongoose.Schema({
   transactionDate: Date,
   applicationPdfUrl: String,
   
-  // Status
+  // Status — active workflow + backward-compat values
   status: {
     type: String,
     enum: [
@@ -87,11 +80,7 @@ const applicationSchema = new mongoose.Schema({
       'verified',
       'printed',
       'rejected',
-      'approved', // Keep for backward compatibility
-      'Application Submitted',
-      'Physical Copy Received',
-      'Verification Completed',
-      'ID Card Printed – Ready for Collection (Library)'
+      'approved', // Keep for backward compatibility (used in stats & frontend)
     ],
     default: 'pending'
   },
@@ -113,8 +102,11 @@ const applicationSchema = new mongoose.Schema({
   }
 });
 
-export default mongoose.model('Application', applicationSchema);
-
-// Indexes
+// Indexes — defined BEFORE model creation so they are registered
+// applicationId already has unique:true in schema (creates its own index)
 applicationSchema.index({ email: 1 });
-applicationSchema.index({ applicationId: 1 });
+applicationSchema.index({ status: 1 });
+applicationSchema.index({ isDeleted: 1 });
+applicationSchema.index({ createdAt: -1 });
+
+export default mongoose.model('Application', applicationSchema);
