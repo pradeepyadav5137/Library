@@ -1,173 +1,123 @@
-# NITT ID Card Re-issue – Setup
+# NIT Library ID Card Portal 📚
 
-Official-style portal: Apply as Student, Faculty/Staff, or Admin login. OTP verification via institute webmail (@nitt.edu), payment instructions (SBI Collect), and AWS S3 Storage for documents.
+![License](https://img.shields.io/badge/license-MIT-blue.svg)
+![Version](https://img.shields.io/badge/version-1.0.0-green.svg)
+![Node](https://img.shields.io/badge/node-%3E%3D20.0.0-brightgreen.svg)
 
-## Project Structure
+A complete MERN stack application designed for the National Institute of Technology, Tiruchirappalli (NITT). This portal allows students, faculty, and staff to easily apply for duplicate or replacement ID cards, track their application status, and provides an admin dashboard for library staff to manage the entire workflow.
 
-```
-backend/   → Express + MongoDB API (nodemailer OTP, optional AWS S3 Storage)
-frontend/  → React + Vite frontend
-```
+---
 
-## Home page options
+## 📸 Screenshots
 
-1. **Apply as Student** – Roll number → OTP to rollno@nitt.edu → 4 steps: Verification, Fill form + photo, Payment & docs (FIR + SBI receipt), Preview → Submit & download PDF.
-2. **Apply as Faculty/Staff** – Institute webmail (@nitt.edu) → OTP → Fill form (no docs) → Preview → Submit & download PDF.
-3. **Admin Login** – No registration; forgot password via OTP to admin email. After login: add new admin, view/verify applications, download documents (local or Firebase URLs).
+*(Replace these placeholder images by dropping your screenshots into the `docs/screenshots/` folder)*
 
-## 1. Backend setup
+### Public Portal (Applicant View)
+<p align="center">
+  <img src="docs/screenshots/home.png" alt="Home Page" width="800"/>
+  <br/>
+  <em>Home Page & Application Flow</em>
+</p>
 
+### Public Tracking
+<p align="center">
+  <img src="docs/screenshots/tracking.png" alt="Status Tracking" width="800"/>
+  <br/>
+  <em>Live Application Status Tracking</em>
+</p>
+
+### Admin Dashboard (Library Staff)
+<p align="center">
+  <img src="docs/screenshots/admin-dashboard.png" alt="Admin Dashboard" width="800"/>
+  <br/>
+  <em>Secure Admin Dashboard for processing applications</em>
+</p>
+
+---
+
+## 🚀 Features
+
+- **Multi-Role Support:** Specific workflows for Students, Faculty, and Staff.
+- **Secure Authentication:** Cookie-based JWT authentication, rate limiting, and 2FA via OTP for admins.
+- **Live Tracking:** Applicants can track their ID card status securely using their Application ID.
+- **Automated Emails:** Email notifications sent at every stage of the application workflow via Nodemailer.
+- **AWS S3 Integration:** Secure file uploads (Photos, FIRs, Payment Receipts) directly to Amazon S3.
+- **Admin Workflow:** Library staff can transition applications through logical states (`Pending` → `Verified` → `Printed`).
+
+---
+
+## 🛠️ Technology Stack
+
+- **Frontend:** React (Vite), React Router, Vanilla CSS, Axios
+- **Backend:** Node.js, Express.js, Mongoose
+- **Database:** MongoDB Atlas
+- **Storage:** AWS S3 (via `@aws-sdk/client-s3`)
+- **Security:** Helmet, Express-Rate-Limit, Mongo Sanitize, HttpOnly Cookies
+
+---
+
+## 💻 Local Development
+
+### Prerequisites
+- Node.js (v20+)
+- MongoDB connection string
+- AWS S3 bucket and IAM credentials (optional for local, falls back to local storage)
+
+### 1. Clone & Install
 ```bash
+git clone https://github.com/pradeepyadav5137/Library.git
+cd Library
+
+# Install backend dependencies
 cd backend
 npm install
-cp .env.example .env
-```
 
-Edit `backend/.env`:
-
-- **MONGODB_URI** – MongoDB connection string.
-- **JWT_SECRET** – Long random secret for tokens.
-- **NODEMAILER_USER**, **NODEMAILER_PASSWORD** – SMTP credentials (OTP to rollno@nitt.edu and institute webmail).
-- **Firebase (optional)** – Set `GOOGLE_APPLICATION_CREDENTIALS_JSON` (minified service account JSON) and optionally `FIREBASE_STORAGE_BUCKET`. If not set, files are stored in `./uploads`.
-
-First admin: no public registration. Create manually or run:
-
-```bash
-node scripts/seedAdmin.js
-```
-
-(Requires ADMIN_USERNAME, ADMIN_EMAIL, ADMIN_PASSWORD in `.env`.)
-
-Start API:
-
-```bash
-npm start
-```
-
-API base: `http://localhost:5000/api`.
-
-## 2. Frontend setup
-
-```bash
-cd frontend
+# Install frontend dependencies
+cd ../frontend
 npm install
 ```
 
-Create `frontend/.env` (or `.env.local`):
-
-```env
-VITE_API_URL=http://localhost:5000/api
-VITE_API_BASE=http://localhost:5000
-```
-
-Start app:
-
+### 2. Environment Variables
+Create a `.env` file in the `backend/` directory using `.env.example`:
 ```bash
+cp .env.example backend/.env
+```
+Fill out your `.env` with your MongoDB URI, AWS details, and email configurations.
+
+### 3. Run the Servers
+**Backend:**
+```bash
+cd backend
 npm run dev
+# Runs on http://localhost:5000
 ```
 
-## 3. Main API endpoints
-
-- **Auth:** `POST /api/auth/send-otp` (body: `rollNo` + `userType: 'student'` or `email` + `userType: 'faculty'|'staff'`), `POST /api/auth/verify-email`, `POST /api/auth/admin-login`, `POST /api/auth/admin-forgot-password`, `POST /api/auth/admin-reset-password`.
-- **Applications:** `POST /api/applications/submit` (Bearer applicant token, multipart: form + photo, fir, payment), `GET /api/applications/status/:id`, `GET /api/applications/all` (admin only).
-- **Admin:** `GET /api/admin/stats`, `PUT /api/admin/approve/:id`, `PUT /api/admin/reject/:id`, `POST /api/admin/add` (add new admin).
-
-Once `.env` is set and both servers run, the app is ready to use.
-
-
-
-
-
-
-
-# 🚀 NITT ID Card Re-issue - Production Setup Guide
-
-Follow these steps to configure, install dependencies, and run the complete MERN stack application locally.
-
-## 1. Prerequisites
-Ensure you have the following installed:
-*   Node.js (v18 or higher recommended)
-*   MongoDB (running locally or a cloud Atlas connection)
-
----
-
-## 2. Environment Variables (.env Setup)
-
-You need to create the .env configuration file in the backend directory. We have provided an example file.
-
-cd backend
-cp ../.env.example .env
-
-
-Open backend/.env and configure the following variables:
-
-# MongoDB Connection String (Replace with your Atlas URL if not local)
-MONGODB_URI=mongodb://localhost:27017/nitt_id_dev
-
-# JWT Secret (Use a strong random string)
-JWT_SECRET=supersecretlongstring
-
-# AWS SES Config (For sending emails)
-AWS_REGION=ap-south-1
-AWS_ACCESS_KEY_ID=your_aws_access_key
-AWS_SECRET_ACCESS_KEY=your_aws_secret_key
-SES_FROM_EMAIL=noreply@nitt.edu
-
-# AWS S3 Config (Optional - For storing uploads directly in S3)
-S3_BUCKET_NAME=nitt-id-bucket
-
-# Application Ports & URLs
-PORT=5000
-FRONTEND_URL=http://localhost:5173
-ADMIN_URL=http://localhost:5173/admin/dashboard
-
-# First Admin Seed Config (For running seedAdmin script)
-ADMIN_USERNAME=admin
-ADMIN_EMAIL=admin@nitt.edu
-ADMIN_PASSWORD=admin123
-
-
----
-
-## 3. Install Dependencies
-
-You need to install packages for both the backend and frontend.
-
-**Install Backend Dependencies:**
-From the root of the project:
-npm install --prefix backend
-
-
-**Install Frontend Dependencies:**
-From the root of the project:
-npm install --prefix frontend
-
-
----
-
-## 4. Run the Application
-
-The system requires two terminal windows to run both servers concurrently.
-
-### Terminal 1: Start Backend Server
-This will start the Express API on port 5000.
-
-cd backend
-npm run dev &
-
-
-(Optional: If you need to create the initial admin user, run node backend/scripts/seedAdmin.js while the backend directory is your working directory)
-
-### Terminal 2: Start Frontend Application
-This will start the Vite React application, usually on port 5173.
-
+**Frontend:**
+```bash
 cd frontend
-npm run dev &
-
+npm run dev
+# Runs on http://localhost:3000
+```
 
 ---
 
-## ✅ You're Done!
-*   **Public Portal:** Visit http://localhost:5173
-*   **Admin Dashboard:** Visit http://localhost:5173/admin-login
+## 🌍 Deployment
 
+The project includes a streamlined deployment script for EC2 instances (`deployment/deploy.sh`). 
+
+To deploy:
+1. Ensure your EC2 is set up with Nginx, PM2, and Node.js.
+2. Update the `EC2_IP` in `deploy.sh`.
+3. Set your production secrets in `backend/.env`.
+4. Run:
+```bash
+bash deployment/deploy.sh
+```
+
+---
+
+## 🔒 Security Best Practices Implemented
+- S3 signed URLs with short expirations to protect PII (Personally Identifiable Information).
+- JWTs stored in `HttpOnly` cookies, preventing XSS token theft.
+- Granular rate limiting on sensitive routes (OTP generation, Admin login).
+- Strict Multer validation to prevent arbitrary file execution.
