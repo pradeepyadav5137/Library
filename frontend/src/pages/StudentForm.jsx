@@ -452,7 +452,7 @@ export default function StudentForm() {
 
             <div className="form-group">
               <label htmlFor="issuedBooks">No. of Issued Books <span className="required">*</span></label>
-              <input type="number" id="issuedBooks" name="issuedBooks" value={formData.issuedBooks} onChange={handleChange} min="0" placeholder="0 if none" required />
+              <input type="number" id="issuedBooks" name="issuedBooks" value={formData.issuedBooks} onChange={handleChange} min="0" max="6" placeholder="0 if none" required />
               {errors.issuedBooks && <small style={{ color: '#e53e3e' }}>{errors.issuedBooks}</small>}
             </div>
           </div>
